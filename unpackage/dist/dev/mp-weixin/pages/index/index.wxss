@@ -1,0 +1,13 @@
+
+.canvas-top {
+  width: 100vw;
+  height: 100vh;
+}
+.text-edit {
+  position: absolute;
+  left: 0;
+  top: 20%;
+  width: 100vw;
+  text-align: center;
+  border: 1px solid black;
+}

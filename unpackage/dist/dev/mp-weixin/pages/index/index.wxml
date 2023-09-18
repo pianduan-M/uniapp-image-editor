@@ -1,0 +1,1 @@
+<view class="content" bindtouchstart="{{c}}" bindtouchmove="{{d}}" bindtouchend="{{e}}"><canvas canvas-id="canvasTop" id="canvasTop" class="canvas-top"></canvas><textarea wx:if="{{a}}" bindblur="{{b}}" type="text" auto-focus class="text-edit"></textarea></view>

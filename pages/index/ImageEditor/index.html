@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+
+      canvas {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+      class Rectangle {
+        constructor({ x, y, color }) {
+          this.color = color;
+          this.startX = x;
+          this.startY = y;
+          this.endX = x;
+          this.endY = y;
+        }
+
+        get minX() {
+          return Math.min(this.startX, this.endX);
+        }
+
+        get maxX() {
+          return Math.max(this.startX, this.endX);
+        }
+
+        get minY() {
+          return Math.min(this.startY, this.endY);
+        }
+
+        get maxY() {
+          return Math.max(this.startY, this.endY);
+        }
+
+        draw() {
+          this.ctx.beginPath();
+          this.ctx.moveTo(this.minX, this.minY);
+          this.ctx.lineTo(this.maxX, this.minY);
+          this.ctx.lineTo(this.maxX, this.maxY);
+          this.ctx.lineTo(this.minX, this.maxY);
+          this.ctx.lineTo(this.minX, this.minY);
+
+          this.ctx.fillStyle = this.color;
+          this.ctx.fill();
+
+          this.ctx.strokeStyle = "#ff1";
+          this.ctx.lineWidth = 3;
+          this.ctx.stroke();
+        }
+
+        setCtx(ctx) {
+          this.ctx = ctx;
+        }
+      }
+    </script>
+
+    <script>
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = window.innerWidth * devicePixelRatio;
+      canvas.height = window.innerHeight * devicePixelRatio;
+
+      console.log(ctx, "ctx");
+
+      const rect = new Rectangle({ color: "red", x: 0, y: 0 });
+      rect.setCtx(ctx);
+      rect.endX = 500;
+      rect.endY = 500;
+      rect.draw();
+    </script>
+  </body>
+</html>

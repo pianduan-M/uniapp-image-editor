@@ -38,7 +38,439 @@ if (uni.restoreGlobal) {
       console[type].apply(console, [...args, filename]);
     }
   }
-  class Rectangle {
+  var eventsExports = {};
+  var events = {
+    get exports() {
+      return eventsExports;
+    },
+    set exports(v) {
+      eventsExports = v;
+    }
+  };
+  var R = typeof Reflect === "object" ? Reflect : null;
+  var ReflectApply = R && typeof R.apply === "function" ? R.apply : function ReflectApply2(target, receiver, args) {
+    return Function.prototype.apply.call(target, receiver, args);
+  };
+  var ReflectOwnKeys;
+  if (R && typeof R.ownKeys === "function") {
+    ReflectOwnKeys = R.ownKeys;
+  } else if (Object.getOwnPropertySymbols) {
+    ReflectOwnKeys = function ReflectOwnKeys2(target) {
+      return Object.getOwnPropertyNames(target).concat(Object.getOwnPropertySymbols(target));
+    };
+  } else {
+    ReflectOwnKeys = function ReflectOwnKeys2(target) {
+      return Object.getOwnPropertyNames(target);
+    };
+  }
+  function ProcessEmitWarning(warning) {
+    if (console && console.warn)
+      formatAppLog("warn", "at node_modules/events/events.js:46", warning);
+  }
+  var NumberIsNaN = Number.isNaN || function NumberIsNaN2(value) {
+    return value !== value;
+  };
+  function EventEmitter() {
+    EventEmitter.init.call(this);
+  }
+  events.exports = EventEmitter;
+  eventsExports.once = once;
+  EventEmitter.EventEmitter = EventEmitter;
+  EventEmitter.prototype._events = void 0;
+  EventEmitter.prototype._eventsCount = 0;
+  EventEmitter.prototype._maxListeners = void 0;
+  var defaultMaxListeners = 10;
+  function checkListener(listener) {
+    if (typeof listener !== "function") {
+      throw new TypeError('The "listener" argument must be of type Function. Received type ' + typeof listener);
+    }
+  }
+  Object.defineProperty(EventEmitter, "defaultMaxListeners", {
+    enumerable: true,
+    get: function() {
+      return defaultMaxListeners;
+    },
+    set: function(arg) {
+      if (typeof arg !== "number" || arg < 0 || NumberIsNaN(arg)) {
+        throw new RangeError('The value of "defaultMaxListeners" is out of range. It must be a non-negative number. Received ' + arg + ".");
+      }
+      defaultMaxListeners = arg;
+    }
+  });
+  EventEmitter.init = function() {
+    if (this._events === void 0 || this._events === Object.getPrototypeOf(this)._events) {
+      this._events = /* @__PURE__ */ Object.create(null);
+      this._eventsCount = 0;
+    }
+    this._maxListeners = this._maxListeners || void 0;
+  };
+  EventEmitter.prototype.setMaxListeners = function setMaxListeners(n) {
+    if (typeof n !== "number" || n < 0 || NumberIsNaN(n)) {
+      throw new RangeError('The value of "n" is out of range. It must be a non-negative number. Received ' + n + ".");
+    }
+    this._maxListeners = n;
+    return this;
+  };
+  function _getMaxListeners(that) {
+    if (that._maxListeners === void 0)
+      return EventEmitter.defaultMaxListeners;
+    return that._maxListeners;
+  }
+  EventEmitter.prototype.getMaxListeners = function getMaxListeners() {
+    return _getMaxListeners(this);
+  };
+  EventEmitter.prototype.emit = function emit(type) {
+    var args = [];
+    for (var i = 1; i < arguments.length; i++)
+      args.push(arguments[i]);
+    var doError = type === "error";
+    var events2 = this._events;
+    if (events2 !== void 0)
+      doError = doError && events2.error === void 0;
+    else if (!doError)
+      return false;
+    if (doError) {
+      var er;
+      if (args.length > 0)
+        er = args[0];
+      if (er instanceof Error) {
+        throw er;
+      }
+      var err = new Error("Unhandled error." + (er ? " (" + er.message + ")" : ""));
+      err.context = er;
+      throw err;
+    }
+    var handler = events2[type];
+    if (handler === void 0)
+      return false;
+    if (typeof handler === "function") {
+      ReflectApply(handler, this, args);
+    } else {
+      var len = handler.length;
+      var listeners = arrayClone(handler, len);
+      for (var i = 0; i < len; ++i)
+        ReflectApply(listeners[i], this, args);
+    }
+    return true;
+  };
+  function _addListener(target, type, listener, prepend) {
+    var m;
+    var events2;
+    var existing;
+    checkListener(listener);
+    events2 = target._events;
+    if (events2 === void 0) {
+      events2 = target._events = /* @__PURE__ */ Object.create(null);
+      target._eventsCount = 0;
+    } else {
+      if (events2.newListener !== void 0) {
+        target.emit(
+          "newListener",
+          type,
+          listener.listener ? listener.listener : listener
+        );
+        events2 = target._events;
+      }
+      existing = events2[type];
+    }
+    if (existing === void 0) {
+      existing = events2[type] = listener;
+      ++target._eventsCount;
+    } else {
+      if (typeof existing === "function") {
+        existing = events2[type] = prepend ? [listener, existing] : [existing, listener];
+      } else if (prepend) {
+        existing.unshift(listener);
+      } else {
+        existing.push(listener);
+      }
+      m = _getMaxListeners(target);
+      if (m > 0 && existing.length > m && !existing.warned) {
+        existing.warned = true;
+        var w = new Error("Possible EventEmitter memory leak detected. " + existing.length + " " + String(type) + " listeners added. Use emitter.setMaxListeners() to increase limit");
+        w.name = "MaxListenersExceededWarning";
+        w.emitter = target;
+        w.type = type;
+        w.count = existing.length;
+        ProcessEmitWarning(w);
+      }
+    }
+    return target;
+  }
+  EventEmitter.prototype.addListener = function addListener(type, listener) {
+    return _addListener(this, type, listener, false);
+  };
+  EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+  EventEmitter.prototype.prependListener = function prependListener(type, listener) {
+    return _addListener(this, type, listener, true);
+  };
+  function onceWrapper() {
+    if (!this.fired) {
+      this.target.removeListener(this.type, this.wrapFn);
+      this.fired = true;
+      if (arguments.length === 0)
+        return this.listener.call(this.target);
+      return this.listener.apply(this.target, arguments);
+    }
+  }
+  function _onceWrap(target, type, listener) {
+    var state = { fired: false, wrapFn: void 0, target, type, listener };
+    var wrapped = onceWrapper.bind(state);
+    wrapped.listener = listener;
+    state.wrapFn = wrapped;
+    return wrapped;
+  }
+  EventEmitter.prototype.once = function once2(type, listener) {
+    checkListener(listener);
+    this.on(type, _onceWrap(this, type, listener));
+    return this;
+  };
+  EventEmitter.prototype.prependOnceListener = function prependOnceListener(type, listener) {
+    checkListener(listener);
+    this.prependListener(type, _onceWrap(this, type, listener));
+    return this;
+  };
+  EventEmitter.prototype.removeListener = function removeListener(type, listener) {
+    var list, events2, position, i, originalListener;
+    checkListener(listener);
+    events2 = this._events;
+    if (events2 === void 0)
+      return this;
+    list = events2[type];
+    if (list === void 0)
+      return this;
+    if (list === listener || list.listener === listener) {
+      if (--this._eventsCount === 0)
+        this._events = /* @__PURE__ */ Object.create(null);
+      else {
+        delete events2[type];
+        if (events2.removeListener)
+          this.emit("removeListener", type, list.listener || listener);
+      }
+    } else if (typeof list !== "function") {
+      position = -1;
+      for (i = list.length - 1; i >= 0; i--) {
+        if (list[i] === listener || list[i].listener === listener) {
+          originalListener = list[i].listener;
+          position = i;
+          break;
+        }
+      }
+      if (position < 0)
+        return this;
+      if (position === 0)
+        list.shift();
+      else {
+        spliceOne(list, position);
+      }
+      if (list.length === 1)
+        events2[type] = list[0];
+      if (events2.removeListener !== void 0)
+        this.emit("removeListener", type, originalListener || listener);
+    }
+    return this;
+  };
+  EventEmitter.prototype.off = EventEmitter.prototype.removeListener;
+  EventEmitter.prototype.removeAllListeners = function removeAllListeners(type) {
+    var listeners, events2, i;
+    events2 = this._events;
+    if (events2 === void 0)
+      return this;
+    if (events2.removeListener === void 0) {
+      if (arguments.length === 0) {
+        this._events = /* @__PURE__ */ Object.create(null);
+        this._eventsCount = 0;
+      } else if (events2[type] !== void 0) {
+        if (--this._eventsCount === 0)
+          this._events = /* @__PURE__ */ Object.create(null);
+        else
+          delete events2[type];
+      }
+      return this;
+    }
+    if (arguments.length === 0) {
+      var keys = Object.keys(events2);
+      var key;
+      for (i = 0; i < keys.length; ++i) {
+        key = keys[i];
+        if (key === "removeListener")
+          continue;
+        this.removeAllListeners(key);
+      }
+      this.removeAllListeners("removeListener");
+      this._events = /* @__PURE__ */ Object.create(null);
+      this._eventsCount = 0;
+      return this;
+    }
+    listeners = events2[type];
+    if (typeof listeners === "function") {
+      this.removeListener(type, listeners);
+    } else if (listeners !== void 0) {
+      for (i = listeners.length - 1; i >= 0; i--) {
+        this.removeListener(type, listeners[i]);
+      }
+    }
+    return this;
+  };
+  function _listeners(target, type, unwrap) {
+    var events2 = target._events;
+    if (events2 === void 0)
+      return [];
+    var evlistener = events2[type];
+    if (evlistener === void 0)
+      return [];
+    if (typeof evlistener === "function")
+      return unwrap ? [evlistener.listener || evlistener] : [evlistener];
+    return unwrap ? unwrapListeners(evlistener) : arrayClone(evlistener, evlistener.length);
+  }
+  EventEmitter.prototype.listeners = function listeners(type) {
+    return _listeners(this, type, true);
+  };
+  EventEmitter.prototype.rawListeners = function rawListeners(type) {
+    return _listeners(this, type, false);
+  };
+  EventEmitter.listenerCount = function(emitter, type) {
+    if (typeof emitter.listenerCount === "function") {
+      return emitter.listenerCount(type);
+    } else {
+      return listenerCount.call(emitter, type);
+    }
+  };
+  EventEmitter.prototype.listenerCount = listenerCount;
+  function listenerCount(type) {
+    var events2 = this._events;
+    if (events2 !== void 0) {
+      var evlistener = events2[type];
+      if (typeof evlistener === "function") {
+        return 1;
+      } else if (evlistener !== void 0) {
+        return evlistener.length;
+      }
+    }
+    return 0;
+  }
+  EventEmitter.prototype.eventNames = function eventNames() {
+    return this._eventsCount > 0 ? ReflectOwnKeys(this._events) : [];
+  };
+  function arrayClone(arr, n) {
+    var copy = new Array(n);
+    for (var i = 0; i < n; ++i)
+      copy[i] = arr[i];
+    return copy;
+  }
+  function spliceOne(list, index) {
+    for (; index + 1 < list.length; index++)
+      list[index] = list[index + 1];
+    list.pop();
+  }
+  function unwrapListeners(arr) {
+    var ret = new Array(arr.length);
+    for (var i = 0; i < ret.length; ++i) {
+      ret[i] = arr[i].listener || arr[i];
+    }
+    return ret;
+  }
+  function once(emitter, name) {
+    return new Promise(function(resolve, reject) {
+      function errorListener(err) {
+        emitter.removeListener(name, resolver);
+        reject(err);
+      }
+      function resolver() {
+        if (typeof emitter.removeListener === "function") {
+          emitter.removeListener("error", errorListener);
+        }
+        resolve([].slice.call(arguments));
+      }
+      eventTargetAgnosticAddListener(emitter, name, resolver, { once: true });
+      if (name !== "error") {
+        addErrorHandlerIfEventEmitter(emitter, errorListener, { once: true });
+      }
+    });
+  }
+  function addErrorHandlerIfEventEmitter(emitter, handler, flags) {
+    if (typeof emitter.on === "function") {
+      eventTargetAgnosticAddListener(emitter, "error", handler, flags);
+    }
+  }
+  function eventTargetAgnosticAddListener(emitter, name, listener, flags) {
+    if (typeof emitter.on === "function") {
+      if (flags.once) {
+        emitter.once(name, listener);
+      } else {
+        emitter.on(name, listener);
+      }
+    } else if (typeof emitter.addEventListener === "function") {
+      emitter.addEventListener(name, function wrapListener(arg) {
+        if (flags.once) {
+          emitter.removeEventListener(name, wrapListener);
+        }
+        listener(arg);
+      });
+    } else {
+      throw new TypeError('The "emitter" argument must be of type EventEmitter. Received type ' + typeof emitter);
+    }
+  }
+  const ToolModeEnum = {
+    // 自由绘制
+    PAINT: "PAINT",
+    RECT: "RECT",
+    TEXT: "TEXT",
+    CROP: "CROP"
+  };
+  function getDistance(p1, p2) {
+    var x = p2.pageX - p1.pageX, y = p2.pageY - p1.pageY;
+    return Math.sqrt(x * x + y * y);
+  }
+  function getAngle(p1, p2) {
+    var x = p1.pageX - p2.pageX, y = p1.pageY - p2.pageY;
+    return Math.atan2(y, x) * 180 / Math.PI;
+  }
+  class BasicObject {
+    constructor() {
+      this.isActive = false;
+      this.scaleX = 1;
+      this.scaleY = 1;
+      this.translateX = 0;
+      this.translateY = 0;
+      this.rotate = 0;
+      this.startDistance = 0;
+      this.moveScale = 0;
+    }
+    transform() {
+      this.ctx.save();
+      this.getObjectCenter();
+      this.ctx.rotate(this.rotate);
+    }
+    resetTransform() {
+      this.ctx.restore();
+    }
+    setActiveState(state) {
+      this.isActive = !!state;
+    }
+    getDistance(e) {
+      const touches = e.touches;
+      return getDistance(touches[0], touches[1]);
+    }
+    getAngle(e) {
+      const touches = e.touches;
+      return getAngle(touches[0], touches[1]);
+    }
+    setStartDistance(distance) {
+      this.startDistance = distance;
+    }
+    calcScale(distance) {
+      const scale = distance / this.startDistance;
+      this.moveScale = scale;
+    }
+    handleTouchend() {
+      formatAppLog("log", "at pages/index/ImageEditor/core/object.js:53", "handleTouchend");
+      this.scaleX += this.moveScale;
+      this.scaleY += this.moveScale;
+      this.moveScale = 0;
+    }
+  }
+  class Rectangle extends BasicObject {
     constructor({
       x,
       y,
@@ -46,6 +478,7 @@ if (uni.restoreGlobal) {
       lineCap = "square",
       stroke = "black"
     }) {
+      super();
       this.color = color;
       this.startX = x;
       this.startY = y;
@@ -66,18 +499,25 @@ if (uni.restoreGlobal) {
       return Math.max(this.startY, this.endY);
     }
     draw(ctx) {
+      !this.ctx && (this.ctx = ctx);
       ctx.beginPath();
-      ctx.moveTo(this.minX, this.minY);
-      ctx.lineTo(this.maxX, this.minY);
-      ctx.lineTo(this.maxX, this.maxY);
-      ctx.lineTo(this.minX, this.maxY);
-      ctx.lineTo(this.minX, this.minY);
+      this.transform();
+      const minX = this.minX - (this.scaleX - 1) * this.scaleX;
+      const minY = this.minY - (this.scaleY - 1) * this.scaleY;
+      const maxX = this.maxX + (this.scaleX - 1) * this.maxX;
+      const maxY = this.maxY + (this.scaleY - 1) * this.maxY;
+      ctx.moveTo(minX, minY);
+      ctx.lineTo(maxX, minY);
+      ctx.lineTo(maxX, maxY);
+      ctx.lineTo(minX, maxY);
+      ctx.lineTo(minX, minY);
       ctx.setFillStyle(this.color);
       ctx.fill();
       ctx.setLineCap(this.lineCap);
       ctx.setStrokeStyle(this.stroke);
       ctx.setLineWidth(3);
       ctx.stroke();
+      this.resetTransform();
     }
     isInside(x, y) {
       return x >= this.minX && x <= this.maxX && y >= this.minY && y <= this.maxY;
@@ -96,62 +536,237 @@ if (uni.restoreGlobal) {
       this.endX += diffX;
       this.endY += diffY;
     }
-  }
-  class IText {
-    constructor({ text, x = 0, y = 0, color, fontSize = 14 }) {
-      this.text = text;
-      this.x = x;
-      this.y = y;
-      this.color = color;
-      this.fontSize = fontSize;
-      this.maxWidth = 300;
+    getObjectCenter() {
+      const w = this.maxX - this.minX;
+      const h = this.maxY - this.minY;
+      return {
+        x: this.minX + w / 2,
+        y: this.minY + h / 2
+      };
     }
-    get startX() {
-      return this.x;
+  }
+  class InitPaintRect {
+    constructor(editor) {
+      this.editor = editor;
+      this.isMove = false;
+      this.activeObject = null;
+      this.startDistance = null;
+      this.init();
+    }
+    init() {
+      this.bindHandleTouchstart = this.handleTouchstart.bind(this);
+      this.bindHandleTouchmove = this.handleTouchmove.bind(this);
+      this.bindHandleTouchend = this.handleTouchend.bind(this);
+      this.editor.on("touchstart", this.bindHandleTouchstart);
+    }
+    handleTouchstart(evt) {
+      if (this.editor.mode !== ToolModeEnum.RECT) {
+        return;
+      }
+      const touches = evt.touches;
+      const event = touches[0];
+      const x = event.clientX;
+      const y = event.clientY;
+      let obj = this.editor.getInsideObj.call(this.editor, { x, y });
+      if (obj) {
+        this.isMove = true;
+        if (touches.length === 1) {
+          obj.setMoveStart(x, y);
+        } else {
+          const distance = obj.getDistance(evt);
+          obj.setStartDistance(distance);
+        }
+      } else {
+        this.isMove = false;
+        if (evt.touches.length === 1) {
+          obj = new Rectangle({ color: "transparent", x, y });
+          this.editor.add(obj);
+        } else {
+          return;
+        }
+      }
+      this.activeObject = obj;
+      this.editor.on("touchmove", this.bindHandleTouchmove);
+      this.editor.on("touchend", this.bindHandleTouchend);
+    }
+    handleTouchmove(evt) {
+      const touches = evt.touches;
+      const event = touches[0];
+      const x = event.clientX;
+      const y = event.clientY;
+      if (this.isMove) {
+        if (touches.length === 1) {
+          this.activeObject && this.activeObject.move(x, y);
+        } else {
+          const distance = this.activeObject.getDistance(evt);
+          this.activeObject.calcScale(distance);
+        }
+      } else {
+        this.activeObject.endX = x;
+        this.activeObject.endY = y;
+      }
+      this.editor.render();
+    }
+    handleTouchend() {
+      this.editor.off("touchmove", this.bindHandleTouchmove);
+      this.editor.off("touchend", this.bindHandleTouchend);
+      this.activeObject && this.activeObject.handleTouchend();
+      this.activeObject = null;
+    }
+  }
+  class InitBackgroundImage {
+    constructor({ src, editor }) {
+      this.imageWidth = null;
+      this.imageHeight = null;
+      this.editor = editor;
+      if (src) {
+        this.setBackgroundImage(src);
+      }
+      this.init;
+    }
+    init() {
+      this.bindHandleTouchstart = this.handleTouchstart.bind(this);
+      this.bindHandleTouchmove = this.handleTouchmove.bind(this);
+      this.bindHandleTouchend = this.handleTouchend.bind(this);
+      this.editor.on("touchstart", this.bindHandleTouchstart);
+    }
+    handleTouchstart(evt) {
+      if (this.editor.mode !== ToolModeEnum.CROP) {
+        return;
+      }
+      const touches = evt.touches;
+      if (touches.length <= 1)
+        return;
+    }
+    handleTouchmove(evt) {
+    }
+    handleTouchend(evt) {
+    }
+    setBackgroundImage(src) {
+      this.src = src;
+      uni.getImageInfo({
+        src,
+        success: ({ width, height, path, orientation, type }) => {
+          this.imageWidth = width;
+          this.imageHeight = height;
+          this.editor.render();
+        },
+        fail: (error) => {
+        }
+      });
     }
     draw(ctx) {
-      this.ctx = ctx;
-      ctx.beginPath();
-      ctx.setFontSize(this.fontSize);
-      const texts = this.formatText(this.text);
-      formatAppLog("log", "at pages/index/ImageEditor/components/IText.js:23", texts, "texts");
-      let startY = this.y;
-      texts.map((t) => {
-        ctx.fillText(t, this.startX, startY);
-        startY += this.fontSize * 1.5;
-      });
+      if (!this.src || !this.imageWidth || !this.imageHeight)
+        return;
+      const imageWidth = this.imageWidth;
+      const imageHeight = this.imageHeight;
+      const canvasWidth = this.editor.canvasWidth;
+      const canvasHeight = this.editor.canvasHeight;
+      const imageRate = imageWidth / imageHeight;
+      const canvasRate = canvasWidth / canvasHeight;
+      let [dx, dy, dw, dh] = [];
+      if (imageRate >= canvasRate) {
+        dw = canvasWidth;
+        dh = canvasWidth / imageRate;
+      } else {
+        dh = canvasHeight;
+        dw = canvasHeight * imageRate;
+      }
+      dx = (canvasWidth - dw) / 2;
+      dy = (canvasHeight - dh) / 2;
+      const { scaleX, scaleY, translateX, translateY } = this.editor;
+      formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:76", scaleX, scaleY, translateX, translateY);
+      ctx.setTransform(
+        this.editor.scaleX,
+        0,
+        0,
+        this.editor.scaleY,
+        this.editor.translateX,
+        this.editor.translateY
+      );
+      ctx.drawImage(this.src, dx, dy, dw, dh);
     }
-    formatText(text) {
-      const result = [];
-      text.split("\n").map((t) => {
-        formatAppLog("log", "at pages/index/ImageEditor/components/IText.js:37", this.ctx.measureText(t), "this.ctx.measureText(t)");
-        const w = this.startX + this.ctx.measureText(t).width;
-        formatAppLog("log", "at pages/index/ImageEditor/components/IText.js:40", w, "w");
-        if (w > this.maxWidth) {
-          result.push(this.splitText(t));
-        } else {
-          result.push(t);
-        }
-      });
-      return result.flat();
+  }
+  class ImageEditor extends eventsExports {
+    constructor({ getContext, width, height }) {
+      super();
+      // object list
+      this.objects = [];
+      // tool mode
+      // mode = ToolModeEnum.RECT;
+      this.mode = null;
+      this.translateX = 0;
+      this.translateY = 0;
+      this.scaleX = 1;
+      this.scaleY = 1;
+      this.ctx = getContext();
+      this.init();
+      this.canvasWidth = width;
+      this.canvasHeight = height;
     }
-    splitText(text) {
-      const len = text.length;
-      const result = [];
-      let str = "";
-      for (let i = 0; i < len; i++) {
-        str += text[i];
-        const w = this.startX + this.ctx.measureText(str).width;
-        if (w > this.maxWidth) {
-          result.push(str.slice(0, str.length - 1));
-          str = text[i];
+    init() {
+      new InitPaintRect(this);
+      this.backgroundImage = new InitBackgroundImage({
+        src: "/static/21695106089_.pic.jpg",
+        editor: this
+      });
+      this.render();
+    }
+    onTouchstart(evt) {
+      this.emit("touchstart", evt);
+    }
+    onTouchmove(evt) {
+      this.emit("touchmove", evt);
+    }
+    onTouchend(evt) {
+      this.emit("touchend", evt);
+    }
+    add(obj) {
+      this.objects.push(obj);
+    }
+    remove(obj) {
+      const index = this.objects.findIndex((d) => d === obj);
+      if (index > -1) {
+        this.objects.splice(index, 1);
+      }
+    }
+    render() {
+      this.ctx.clearRect(0, 0, this.width, this.height);
+      this.backgroundImage.draw(this.ctx);
+      this.objects.forEach((obj) => {
+        obj.draw(this.ctx);
+      });
+      this.ctx.draw();
+    }
+    getActiveObject() {
+      const existItem = this.objects.find((obj) => obj.isActive);
+      return existItem;
+    }
+    getInsideObj({ x, y }) {
+      const len = this.objects.length - 1;
+      for (let i = len; i >= 0; i--) {
+        const obj = this.objects[i];
+        if (obj.isInside(x, y)) {
+          this.setActiveObject(obj);
+          return obj;
         }
       }
-      if (str) {
-        result.push(str);
-      }
-      formatAppLog("log", "at pages/index/ImageEditor/components/IText.js:70", result, "result");
-      return result;
+    }
+    setActiveObject(obj) {
+      this.objects.forEach((d) => d.setActiveState(false));
+      this.timer && clearTimeout(this.timer);
+      obj.setActiveState(true);
+      this.render();
+      this.timer = setTimeout(() => {
+        obj.setActiveState(false);
+        this.render();
+      }, 3e3);
+    }
+    setScale(scaleX, scaleY) {
+      this.scaleX = scaleX;
+      this.scaleY = scaleY;
+      this.translateX = this.canvasWidth / 2 * (1 - this.scaleX);
+      this.translateY = this.canvasHeight / 2 * (1 - this.scaleY);
     }
   }
   const _export_sfc = (sfc, props) => {
@@ -172,50 +787,30 @@ if (uni.restoreGlobal) {
     },
     methods: {
       onBlur(e) {
-        formatAppLog("log", "at pages/index/index.vue:34", e, "onBlur");
+        formatAppLog("log", "at pages/index/index.vue:33", e, "onBlur");
       },
       onTouchstart(e) {
-        this.isStart = true;
-        const event = e.touches[0];
-        const x = event.clientX;
-        const y = event.clientY;
-        if (this.rect && this.rect.isInside(x, y)) {
-          this.moveRect = this.rect;
-          this.moveRect.setMoveStart(x, y);
-        } else {
-          this.rect = new Rectangle({ color: "transparent", x, y });
-          this.moveRect = null;
-        }
+        formatAppLog("log", "at pages/index/index.vue:36", e);
+        this.editor.onTouchstart(e);
       },
       onTouchmove(e) {
-        if (!this.isStart)
-          return;
-        const event = e.touches[0];
-        const x = event.clientX;
-        const y = event.clientY;
-        if (this.moveRect) {
-          this.moveRect.move(x, y);
-        } else {
-          this.rect.endX = x;
-          this.rect.endY = y;
-        }
-        this.rect.draw(this.ctx);
-        this.ctx.draw();
+        this.editor.onTouchmove(e);
       },
       onTouchend(e) {
-        this.isStart = false;
+        this.editor.onTouchend(e);
       }
     },
     mounted() {
-      setTimeout(() => {
-        this.show = true;
-        const ctx = uni.createCanvasContext("canvasTop", this);
-        this.ctx = ctx;
-        const testText = "jdpoasjdo测试对哦时间佛皮带司机撒泼哦记得富婆阿是觉得泼洒降低撒娇斗破加上破煞识破金佛寺阿姐";
-        const text = new IText({ text: testText, y: 100 });
-        text.draw(ctx);
-        ctx.draw();
-      });
+      const ctx = uni.createCanvasContext("canvasTop", this);
+      const query = uni.createSelectorQuery().in(this);
+      query.select("#canvasTop").boundingClientRect((data) => {
+        this.editor = new ImageEditor({
+          getContext() {
+            return ctx;
+          },
+          ...data
+        });
+      }).exec();
     }
   };
   function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
@@ -251,7 +846,7 @@ if (uni.restoreGlobal) {
       /* HYDRATE_EVENTS */
     );
   }
-  const PagesIndexIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__file", "/Users/pianduan/Documents/code/demo/uniapp/pd-image-editor/pages/index/index.vue"]]);
+  const PagesIndexIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__file", "/Users/painduan/Desktop/code/demo/uniapp-image-editor/pages/index/index.vue"]]);
   __definePage("pages/index/index", PagesIndexIndex);
   const _sfc_main = {
     onLaunch: function() {
@@ -264,7 +859,7 @@ if (uni.restoreGlobal) {
       formatAppLog("log", "at App.vue:10", "App Hide");
     }
   };
-  const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "/Users/pianduan/Documents/code/demo/uniapp/pd-image-editor/App.vue"]]);
+  const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "/Users/painduan/Desktop/code/demo/uniapp-image-editor/App.vue"]]);
   function createApp() {
     const app = vue.createVueApp(App);
     return {

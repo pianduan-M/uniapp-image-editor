@@ -17,8 +17,7 @@
 </template>
 
 <script>
-import Rectangle from "./ImageEditor/components/Rectangle";
-import IText from "./ImageEditor/components/IText";
+import { ImageEditor } from "./ImageEditor/core/index";
 
 export default {
   data() {
@@ -34,55 +33,30 @@ export default {
       console.log(e, "onBlur");
     },
     onTouchstart(e) {
-      this.isStart = true;
-      const event = e.touches[0];
-      const x = event.clientX;
-      const y = event.clientY;
-
-      if (this.rect && this.rect.isInside(x, y)) {
-        this.moveRect = this.rect;
-        this.moveRect.setMoveStart(x, y);
-      } else {
-        this.rect = new Rectangle({ color: "transparent", x, y });
-        this.moveRect = null;
-      }
+      console.log(e);
+      this.editor.onTouchstart(e);
     },
     onTouchmove(e) {
-      if (!this.isStart) return;
-      const event = e.touches[0];
-      const x = event.clientX;
-      const y = event.clientY;
-
-      if (this.moveRect) {
-        this.moveRect.move(x, y);
-      } else {
-        this.rect.endX = x;
-        this.rect.endY = y;
-      }
-
-      this.rect.draw(this.ctx);
-      this.ctx.draw();
-      // console.log(e);
+      this.editor.onTouchmove(e);
     },
     onTouchend(e) {
-      this.isStart = false;
-      // this.rect = null;
+      this.editor.onTouchend(e);
     },
   },
   mounted() {
-    setTimeout(() => {
-      this.show = true;
-
-      const ctx = uni.createCanvasContext("canvasTop", this);
-
-      this.ctx = ctx;
-
-      const testText =
-        "jdpoasjdo测试对哦时间佛皮带司机撒泼哦记得富婆阿是觉得泼洒降低撒娇斗破加上破煞识破金佛寺阿姐";
-      const text = new IText({ text: testText, y: 100 });
-      text.draw(ctx);
-      ctx.draw();
-    });
+    const ctx = uni.createCanvasContext("canvasTop", this);
+    const query = uni.createSelectorQuery().in(this);
+    query
+      .select("#canvasTop")
+      .boundingClientRect((data) => {
+        this.editor = new ImageEditor({
+          getContext() {
+            return ctx;
+          },
+          ...data,
+        });
+      })
+      .exec();
   },
 };
 </script>

@@ -30,41 +30,57 @@ export default class InitBackgroundImage {
       return;
     }
 
+    console.log(this._getMinScale);
+
     const touches = evt.touches;
 
     if (touches.length <= 1) {
       this.handleMoveStart(evt);
     } else {
-      this.originScale = {
-        x: this.editor.scaleX,
-        y: this.editor.scaleY,
-      };
-
       this.distance = getDistance(touches[0], touches[1]);
+      // this.setCenterPoint(touches);
     }
 
     this.editor.on("touchmove", this.bindHandleTouchmove);
     this.editor.on("touchend", this.bindHandleTouchend);
   }
+  setCenterPoint([touch1, touch2]) {
+    const _centerX = (touch1.pageX + touch2.pageX) / 2;
+    const _centerY = (touch1.pageY + touch2.pageY) / 2;
+
+    const viewportTransform = this.editor.viewportTransform;
+
+    const centerX =
+      viewportTransform[4] +
+      ((1 - viewportTransform[0]) * (viewportTransform[4] - _centerX)) /
+        viewportTransform[0];
+    const centerY =
+      viewportTransform[5] +
+      ((1 - viewportTransform[0]) * (viewportTransform[5] - _centerY)) /
+        viewportTransform[0];
+
+    this.editor.setCenterPoint([centerX, centerY]);
+  }
+
   handleTouchmove(evt) {
     const touches = evt.touches;
     if (touches.length >= 2) {
       const newDistance = getDistance(touches[0], touches[1]);
 
-      const scale = newDistance / this.distance - 1;
+      const scale = newDistance / this.distance;
       this.distance = newDistance;
 
       const viewportTransform = this.editor.viewportTransform;
 
-      let scaleX = viewportTransform[0] + scale;
+      let scaleX = viewportTransform[0] * scale;
 
       scaleX = scaleX > 10 ? 10 : scaleX;
-      scaleX = scaleX < 0.1 ? 0.1 : scaleX;
+      scaleX = scaleX < this._getMinScale ? this._getMinScale : scaleX;
 
       viewportTransform[0] = scaleX;
       viewportTransform[3] = scaleX;
 
-      this.editor.setViewportTransform(viewportTransform);
+      // this.setCenterPoint(touches);
     } else {
       this.handleMove(evt);
     }
@@ -106,16 +122,14 @@ export default class InitBackgroundImage {
           dw = canvasHeight * imageRate;
         }
 
-        this.imageWidth = dw;
-        this.imageHeight = dh;
         this.dx = canvasWidth / 2 - dw / 2;
         this.dy = canvasHeight / 2 - dh / 2;
 
-        const viewportTransform = this.editor.viewportTransform;
-        viewportTransform[4] -= canvasWidth / 2;
-        viewportTransform[5] -= canvasHeight / 2;
+        const size = this.editor.transform(dw, dh, this.editor.angle);
+        this.imageWidth = dw;
+        this.imageHeight = dh;
 
-        this.editor.setViewportTransform(viewportTransform);
+        console.log(dw, dh);
 
         this.editor.render();
       },
@@ -146,17 +160,39 @@ export default class InitBackgroundImage {
       y: touch.pageY,
     };
 
-    const x = this.startPoint.x - movePoint.x;
-    const y = this.startPoint.y - movePoint.y;
+    const distanceX = movePoint.x - this.startPoint.x;
+    const distanceY = movePoint.y - this.startPoint.y;
     this.startPoint = movePoint;
 
     const viewportTransform = this.editor.viewportTransform;
 
-    viewportTransform[4] += -x;
+    viewportTransform[4] += distanceX / viewportTransform[0];
 
-    viewportTransform[5] += -y;
+    viewportTransform[5] += distanceY / viewportTransform[0];
 
     this.editor.setViewportTransform(viewportTransform);
+  }
+
+  /**
+   * 计算旋转后的新坐标（相对于画布）
+   * @param x
+   * @param y
+   * @param centerX
+   * @param centerY
+   * @param degrees
+   * @returns {*[]}
+   * @private
+   */
+  _rotatePoint(x, y, centerX, centerY, degrees) {
+    let newX =
+      (x - centerX) * Math.cos((degrees * Math.PI) / 180) -
+      (y - centerY) * Math.sin((degrees * Math.PI) / 180) +
+      centerX;
+    let newY =
+      (x - centerX) * Math.sin((degrees * Math.PI) / 180) +
+      (y - centerY) * Math.cos((degrees * Math.PI) / 180) +
+      centerY;
+    return [newX, newY];
   }
 
   handleMoveEnd(evt) {
@@ -166,64 +202,45 @@ export default class InitBackgroundImage {
 
     const offsetX = viewportTransform[4];
     const offsetY = viewportTransform[5];
-
-    // if (this._getWidth + offsetX < canvasWidth) {
-    //   viewportTransform[4] = -(this._getWidth - canvasWidth);
-    // }
-
-    // if (offsetX > 0) {
-    //   viewportTransform[4] = 0;
-    // }
+    const scale = viewportTransform[0];
 
     if (this._getWidth > canvasWidth) {
-      console.log("进来了", offsetX, this._offsetX);
-      if (offsetX > 0) {
-        viewportTransform[4] = 0;
+      const maxOffsetX = (this._getWidth - canvasWidth) / 2 / scale;
+
+      if (offsetX > maxOffsetX) {
+        viewportTransform[4] = maxOffsetX;
       }
 
-      if (this._getWidth + offsetX < canvasWidth) {
-        viewportTransform[4] = -(this._getWidth - canvasWidth);
+      if (offsetX < -maxOffsetX) {
+        viewportTransform[4] = -maxOffsetX;
       }
-
-      // if (offsetX > -this._offsetX) {
-      //   viewportTransform[4] = -this._offsetY;
-      // }
-
-      // if (offsetX < -(this._getWidth + this._offsetX - canvasWidth)) {
-      //   viewportTransform[4] = canvasWidth - this._offsetX - this._getWidth;
-      // }
     } else {
-      viewportTransform[4] =
-        (this._getWidth + this._offsetX - canvasWidth) / 2 + this._getWidth / 2;
-
-      console.log("进来了2", viewportTransform);
+      viewportTransform[4] = 0;
     }
+
+    console.log(
+      `offset${offsetY}; height${
+        this._getHeight
+      };transform ${this.editor.transform(
+        ...viewportTransform.slice(4),
+        this.editor.angle
+      )}`
+    );
 
     if (this._getHeight > canvasHeight) {
-      if (offsetY > -this._offsetY) {
-        viewportTransform[5] = -this._offsetY;
+      const maxOffsetY = (this._getHeight - canvasHeight) / 2 / scale;
+
+      if (offsetY > maxOffsetY) {
+        viewportTransform[5] = maxOffsetY;
       }
 
-      if (offsetY < -(this._getHeight + this._offsetY - canvasHeight)) {
-        viewportTransform[5] = canvasHeight - this._offsetY - this._getHeight;
+      if (offsetY < -maxOffsetY) {
+        viewportTransform[5] = -maxOffsetY;
       }
     } else {
-      viewportTransform[5] = -(
-        (this._getHeight + this._offsetY - canvasHeight) / 2 +
-        this._getHeight / 2
-      );
+      viewportTransform[5] = 0;
     }
 
-    // if (offsetY < -this._offsetY) {
-    //   console.log("进来了1");
-
-    //   viewportTransform[5] = -this._offsetY;
-    // }
-    // if (offsetY + this._offsetY + this._getHeight > canvasHeight) {
-    //   console.log("进来了2");
-
-    //   viewportTransform[5] = canvasHeight - this._offsetY - this._getHeight;
-    // }
     this.editor.setViewportTransform(viewportTransform);
 
     this.editor.render();
@@ -231,24 +248,33 @@ export default class InitBackgroundImage {
 
   get _getWidth() {
     const scale = this.editor.viewportTransform[0];
-    return this.imageWidth * scale;
+    const [imageWidth] = this.editor.transform(
+      this.imageWidth,
+      this.imageHeight,
+      this.editor.angle
+    );
+    return Math.abs(imageWidth * scale);
   }
 
   get _getHeight() {
     const scale = this.editor.viewportTransform[0];
-
-    return this.imageHeight * scale;
+    const [imageWidth, imageHeight] = this.editor.transform(
+      this.imageWidth,
+      this.imageHeight,
+      this.editor.angle
+    );
+    return Math.abs(imageHeight * scale);
   }
 
-  get _offsetX() {
-    const scale = this.editor.viewportTransform[0];
+  get _getMinScale() {
+    const { canvasWidth, canvasHeight } = this.editor;
 
-    return this.dx * scale;
-  }
+    const [dw, dh] = this.editor.transform(
+      this.imageWidth,
+      this.imageHeight,
+      this.editor.angle
+    );
 
-  get _offsetY() {
-    const scale = this.editor.viewportTransform[0];
-
-    return this.dy * scale;
+    return Math.min(canvasWidth / Math.abs(dw), canvasHeight / Math.abs(dh));
   }
 }

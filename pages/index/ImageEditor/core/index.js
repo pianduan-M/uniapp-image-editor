@@ -11,18 +11,22 @@ export class ImageEditor extends EventEmitter {
   // tool mode
   mode = ToolModeEnum.CROP;
   // mode = null;
-  viewportTransform = [2, 0, 0, 2, 0, 0];
+  scale = 1;
+  centerPoint = [0, 0];
+  viewportTransform = [1, 0, 0, 1, 0, 0];
+  angle = Math.PI / 2;
 
   constructor({ getContext, width, height }) {
     super();
     this.ctx = getContext();
-    this.init();
     this.canvasWidth = width;
     this.canvasHeight = height;
+    this.init();
   }
 
   init() {
     new InitPaintRect(this);
+    this.setCenterPoint([this.canvasWidth / 2, this.canvasHeight / 2]);
 
     this.backgroundImage = new InitBackgroundImage({
       src: "/static/21695106089_.pic.jpg",
@@ -57,8 +61,17 @@ export class ImageEditor extends EventEmitter {
 
   render() {
     this.ctx.clearRect(0, 0, this.width, this.height);
+    this.ctx.save();
+    const [scaleX, s1, s2, scaleY, offsetX, offsetY] = this.viewportTransform;
 
-    this.ctx.setTransform(...this.viewportTransform);
+    const [centerX, centerY] = this.centerPoint;
+
+    this.ctx.translate(centerX, centerY);
+    this.ctx.scale(scaleX, scaleY);
+    this.ctx.rotate(this.angle);
+    this.ctx.translate(-centerX, -centerY);
+
+    this.ctx.translate(...this.transform(offsetX, offsetY, this.angle));
 
     this.backgroundImage.draw(this.ctx);
 
@@ -67,6 +80,7 @@ export class ImageEditor extends EventEmitter {
     });
 
     this.ctx.draw();
+    this.ctx.restore();
   }
 
   getActiveObject() {
@@ -101,5 +115,17 @@ export class ImageEditor extends EventEmitter {
 
   setViewportTransform(viewportTransform) {
     this.viewportTransform = viewportTransform;
+  }
+
+  setCenterPoint(point) {
+    this.centerPoint = point;
+  }
+
+  // 根据旋转角度转换坐标
+  transform(x, y, angle) {
+    const dx = x * Math.cos(angle) + y * Math.sin(angle);
+    const dy = -x * Math.sin(angle) + y * Math.cos(angle);
+
+    return [dx, dy];
   }
 }

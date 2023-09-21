@@ -639,32 +639,36 @@ if (uni.restoreGlobal) {
       if (this.editor.mode !== ToolModeEnum.CROP) {
         return;
       }
+      formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:33", this._getMinScale);
       const touches = evt.touches;
       if (touches.length <= 1) {
         this.handleMoveStart(evt);
       } else {
-        this.originScale = {
-          x: this.editor.scaleX,
-          y: this.editor.scaleY
-        };
         this.distance = getDistance(touches[0], touches[1]);
       }
       this.editor.on("touchmove", this.bindHandleTouchmove);
       this.editor.on("touchend", this.bindHandleTouchend);
     }
+    setCenterPoint([touch1, touch2]) {
+      const _centerX = (touch1.pageX + touch2.pageX) / 2;
+      const _centerY = (touch1.pageY + touch2.pageY) / 2;
+      const viewportTransform = this.editor.viewportTransform;
+      const centerX = viewportTransform[4] + (1 - viewportTransform[0]) * (viewportTransform[4] - _centerX) / viewportTransform[0];
+      const centerY = viewportTransform[5] + (1 - viewportTransform[0]) * (viewportTransform[5] - _centerY) / viewportTransform[0];
+      this.editor.setCenterPoint([centerX, centerY]);
+    }
     handleTouchmove(evt) {
       const touches = evt.touches;
       if (touches.length >= 2) {
         const newDistance = getDistance(touches[0], touches[1]);
-        const scale = newDistance / this.distance - 1;
+        const scale = newDistance / this.distance;
         this.distance = newDistance;
         const viewportTransform = this.editor.viewportTransform;
-        let scaleX = viewportTransform[0] + scale;
+        let scaleX = viewportTransform[0] * scale;
         scaleX = scaleX > 10 ? 10 : scaleX;
-        scaleX = scaleX < 0.1 ? 0.1 : scaleX;
+        scaleX = scaleX < this._getMinScale ? this._getMinScale : scaleX;
         viewportTransform[0] = scaleX;
         viewportTransform[3] = scaleX;
-        this.editor.setViewportTransform(viewportTransform);
       } else {
         this.handleMove(evt);
       }
@@ -700,14 +704,12 @@ if (uni.restoreGlobal) {
             dh = canvasHeight;
             dw = canvasHeight * imageRate;
           }
-          this.imageWidth = dw;
-          this.imageHeight = dh;
           this.dx = canvasWidth / 2 - dw / 2;
           this.dy = canvasHeight / 2 - dh / 2;
-          const viewportTransform = this.editor.viewportTransform;
-          viewportTransform[4] -= canvasWidth / 2;
-          viewportTransform[5] -= canvasHeight / 2;
-          this.editor.setViewportTransform(viewportTransform);
+          this.editor.transform(dw, dh, this.editor.angle);
+          this.imageWidth = dw;
+          this.imageHeight = dh;
+          formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:132", dw, dh);
           this.editor.render();
         },
         fail: (error) => {
@@ -734,13 +736,28 @@ if (uni.restoreGlobal) {
         x: touch.pageX,
         y: touch.pageY
       };
-      const x = this.startPoint.x - movePoint.x;
-      const y = this.startPoint.y - movePoint.y;
+      const distanceX = movePoint.x - this.startPoint.x;
+      const distanceY = movePoint.y - this.startPoint.y;
       this.startPoint = movePoint;
       const viewportTransform = this.editor.viewportTransform;
-      viewportTransform[4] += -x;
-      viewportTransform[5] += -y;
+      viewportTransform[4] += distanceX / viewportTransform[0];
+      viewportTransform[5] += distanceY / viewportTransform[0];
       this.editor.setViewportTransform(viewportTransform);
+    }
+    /**
+     * 计算旋转后的新坐标（相对于画布）
+     * @param x
+     * @param y
+     * @param centerX
+     * @param centerY
+     * @param degrees
+     * @returns {*[]}
+     * @private
+     */
+    _rotatePoint(x, y, centerX, centerY, degrees) {
+      let newX = (x - centerX) * Math.cos(degrees * Math.PI / 180) - (y - centerY) * Math.sin(degrees * Math.PI / 180) + centerX;
+      let newY = (x - centerX) * Math.sin(degrees * Math.PI / 180) + (y - centerY) * Math.cos(degrees * Math.PI / 180) + centerY;
+      return [newX, newY];
     }
     handleMoveEnd(evt) {
       const viewportTransform = this.editor.viewportTransform;
@@ -748,46 +765,66 @@ if (uni.restoreGlobal) {
       const canvasHeight = this.editor.canvasHeight;
       const offsetX = viewportTransform[4];
       const offsetY = viewportTransform[5];
+      const scale = viewportTransform[0];
       if (this._getWidth > canvasWidth) {
-        formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:179", "进来了", offsetX, this._offsetX);
-        if (offsetX > 0) {
-          viewportTransform[4] = 0;
+        const maxOffsetX = (this._getWidth - canvasWidth) / 2 / scale;
+        if (offsetX > maxOffsetX) {
+          viewportTransform[4] = maxOffsetX;
         }
-        if (this._getWidth + offsetX < canvasWidth) {
-          viewportTransform[4] = -(this._getWidth - canvasWidth);
+        if (offsetX < -maxOffsetX) {
+          viewportTransform[4] = -maxOffsetX;
         }
       } else {
-        viewportTransform[4] = (this._getWidth + this._offsetX - canvasWidth) / 2 + this._getWidth / 2;
-        formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:199", "进来了2", viewportTransform);
+        viewportTransform[4] = 0;
       }
+      formatAppLog(
+        "log",
+        "at pages/index/ImageEditor/core/initBackgroundImage.js:221",
+        `offset${offsetY}; height${this._getHeight};transform ${this.editor.transform(
+          ...viewportTransform.slice(4),
+          this.editor.angle
+        )}`
+      );
       if (this._getHeight > canvasHeight) {
-        if (offsetY > -this._offsetY) {
-          viewportTransform[5] = -this._offsetY;
+        const maxOffsetY = (this._getHeight - canvasHeight) / 2 / scale;
+        if (offsetY > maxOffsetY) {
+          viewportTransform[5] = maxOffsetY;
         }
-        if (offsetY < -(this._getHeight + this._offsetY - canvasHeight)) {
-          viewportTransform[5] = canvasHeight - this._offsetY - this._getHeight;
+        if (offsetY < -maxOffsetY) {
+          viewportTransform[5] = -maxOffsetY;
         }
       } else {
-        viewportTransform[5] = -((this._getHeight + this._offsetY - canvasHeight) / 2 + this._getHeight / 2);
+        viewportTransform[5] = 0;
       }
       this.editor.setViewportTransform(viewportTransform);
       this.editor.render();
     }
     get _getWidth() {
       const scale = this.editor.viewportTransform[0];
-      return this.imageWidth * scale;
+      const [imageWidth] = this.editor.transform(
+        this.imageWidth,
+        this.imageHeight,
+        this.editor.angle
+      );
+      return Math.abs(imageWidth * scale);
     }
     get _getHeight() {
       const scale = this.editor.viewportTransform[0];
-      return this.imageHeight * scale;
+      const [imageWidth, imageHeight] = this.editor.transform(
+        this.imageWidth,
+        this.imageHeight,
+        this.editor.angle
+      );
+      return Math.abs(imageHeight * scale);
     }
-    get _offsetX() {
-      const scale = this.editor.viewportTransform[0];
-      return this.dx * scale;
-    }
-    get _offsetY() {
-      const scale = this.editor.viewportTransform[0];
-      return this.dy * scale;
+    get _getMinScale() {
+      const { canvasWidth, canvasHeight } = this.editor;
+      const [dw, dh] = this.editor.transform(
+        this.imageWidth,
+        this.imageHeight,
+        this.editor.angle
+      );
+      return Math.min(canvasWidth / Math.abs(dw), canvasHeight / Math.abs(dh));
     }
   }
   class ImageEditor extends eventsExports {
@@ -798,14 +835,18 @@ if (uni.restoreGlobal) {
       // tool mode
       this.mode = ToolModeEnum.CROP;
       // mode = null;
-      this.viewportTransform = [2, 0, 0, 2, 0, 0];
+      this.scale = 1;
+      this.centerPoint = [0, 0];
+      this.viewportTransform = [1, 0, 0, 1, 0, 0];
+      this.angle = Math.PI / 2;
       this.ctx = getContext();
-      this.init();
       this.canvasWidth = width;
       this.canvasHeight = height;
+      this.init();
     }
     init() {
       new InitPaintRect(this);
+      this.setCenterPoint([this.canvasWidth / 2, this.canvasHeight / 2]);
       this.backgroundImage = new InitBackgroundImage({
         src: "/static/21695106089_.pic.jpg",
         editor: this
@@ -832,12 +873,20 @@ if (uni.restoreGlobal) {
     }
     render() {
       this.ctx.clearRect(0, 0, this.width, this.height);
-      this.ctx.setTransform(...this.viewportTransform);
+      this.ctx.save();
+      const [scaleX, s1, s2, scaleY, offsetX, offsetY] = this.viewportTransform;
+      const [centerX, centerY] = this.centerPoint;
+      this.ctx.translate(centerX, centerY);
+      this.ctx.scale(scaleX, scaleY);
+      this.ctx.rotate(this.angle);
+      this.ctx.translate(-centerX, -centerY);
+      this.ctx.translate(...this.transform(offsetX, offsetY, this.angle));
       this.backgroundImage.draw(this.ctx);
       this.objects.forEach((obj) => {
         obj.draw(this.ctx);
       });
       this.ctx.draw();
+      this.ctx.restore();
     }
     getActiveObject() {
       const existItem = this.objects.find((obj) => obj.isActive);
@@ -865,6 +914,15 @@ if (uni.restoreGlobal) {
     }
     setViewportTransform(viewportTransform) {
       this.viewportTransform = viewportTransform;
+    }
+    setCenterPoint(point) {
+      this.centerPoint = point;
+    }
+    // 根据旋转角度转换坐标
+    transform(x, y, angle) {
+      const dx = x * Math.cos(angle) + y * Math.sin(angle);
+      const dy = -x * Math.sin(angle) + y * Math.cos(angle);
+      return [dx, dy];
     }
   }
   const _export_sfc = (sfc, props) => {
@@ -943,7 +1001,7 @@ if (uni.restoreGlobal) {
       /* HYDRATE_EVENTS */
     );
   }
-  const PagesIndexIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__file", "/Users/painduan/Desktop/code/demo/uniapp-image-editor/pages/index/index.vue"]]);
+  const PagesIndexIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__file", "/Users/pianduan/Documents/code/demo/uniapp/pd-image-editor/pages/index/index.vue"]]);
   __definePage("pages/index/index", PagesIndexIndex);
   const _sfc_main = {
     onLaunch: function() {
@@ -956,7 +1014,7 @@ if (uni.restoreGlobal) {
       formatAppLog("log", "at App.vue:10", "App Hide");
     }
   };
-  const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "/Users/painduan/Desktop/code/demo/uniapp-image-editor/App.vue"]]);
+  const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "/Users/pianduan/Documents/code/demo/uniapp/pd-image-editor/App.vue"]]);
   function createApp() {
     const app = vue.createVueApp(App);
     return {

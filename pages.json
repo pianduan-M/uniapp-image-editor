@@ -7,7 +7,8 @@
 				"app-plus": {
 					// 将回弹属性关掉
 					"bounce": "none"
-				}
+				},
+				"navigationStyle": "custom"
 			}
 		}
 	],

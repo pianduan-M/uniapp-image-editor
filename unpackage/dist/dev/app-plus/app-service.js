@@ -618,11 +618,16 @@ if (uni.restoreGlobal) {
     constructor({ src, editor }) {
       this.imageWidth = null;
       this.imageHeight = null;
+      this.startPoint = {
+        x: 0,
+        y: 0
+      };
+      this.distance = 0;
       this.editor = editor;
       if (src) {
         this.setBackgroundImage(src);
       }
-      this.init;
+      this.init();
     }
     init() {
       this.bindHandleTouchstart = this.handleTouchstart.bind(this);
@@ -635,20 +640,74 @@ if (uni.restoreGlobal) {
         return;
       }
       const touches = evt.touches;
-      if (touches.length <= 1)
-        return;
+      if (touches.length <= 1) {
+        this.handleMoveStart(evt);
+      } else {
+        this.originScale = {
+          x: this.editor.scaleX,
+          y: this.editor.scaleY
+        };
+        this.distance = getDistance(touches[0], touches[1]);
+      }
+      this.editor.on("touchmove", this.bindHandleTouchmove);
+      this.editor.on("touchend", this.bindHandleTouchend);
     }
     handleTouchmove(evt) {
+      const touches = evt.touches;
+      if (touches.length >= 2) {
+        const newDistance = getDistance(touches[0], touches[1]);
+        const scale = newDistance / this.distance - 1;
+        this.distance = newDistance;
+        const viewportTransform = this.editor.viewportTransform;
+        let scaleX = viewportTransform[0] + scale;
+        scaleX = scaleX > 10 ? 10 : scaleX;
+        scaleX = scaleX < 0.1 ? 0.1 : scaleX;
+        viewportTransform[0] = scaleX;
+        viewportTransform[3] = scaleX;
+        this.editor.setViewportTransform(viewportTransform);
+      } else {
+        this.handleMove(evt);
+      }
+      this.editor.render();
     }
     handleTouchend(evt) {
+      this.handleMoveEnd();
+      this.editor.off("touchmove", this.bindHandleTouchmove);
+      this.editor.off("touchend", this.bindHandleTouchend);
+    }
+    transformPoint(point) {
+      const viewportTransform = this.editor.viewportTransform;
+      point[0] -= viewportTransform[4];
+      point[1] -= viewportTransform[5];
+      point[0] /= viewportTransform[0];
+      point[1] /= viewportTransform[0];
+      return point;
     }
     setBackgroundImage(src) {
       this.src = src;
       uni.getImageInfo({
         src,
         success: ({ width, height, path, orientation, type }) => {
-          this.imageWidth = width;
-          this.imageHeight = height;
+          const canvasWidth = this.editor.canvasWidth;
+          const canvasHeight = this.editor.canvasHeight;
+          const imageRate = width / height;
+          const canvasRate = canvasWidth / canvasHeight;
+          let [dx, dy, dw, dh] = [];
+          if (imageRate >= canvasRate) {
+            dw = canvasWidth;
+            dh = canvasWidth / imageRate;
+          } else {
+            dh = canvasHeight;
+            dw = canvasHeight * imageRate;
+          }
+          this.imageWidth = dw;
+          this.imageHeight = dh;
+          this.dx = canvasWidth / 2 - dw / 2;
+          this.dy = canvasHeight / 2 - dh / 2;
+          const viewportTransform = this.editor.viewportTransform;
+          viewportTransform[4] -= canvasWidth / 2;
+          viewportTransform[5] -= canvasHeight / 2;
+          this.editor.setViewportTransform(viewportTransform);
           this.editor.render();
         },
         fail: (error) => {
@@ -660,31 +719,75 @@ if (uni.restoreGlobal) {
         return;
       const imageWidth = this.imageWidth;
       const imageHeight = this.imageHeight;
+      ctx.drawImage(this.src, this.dx, this.dy, imageWidth, imageHeight);
+    }
+    handleMoveStart(evt) {
+      const touch = evt.touches[0];
+      this.startPoint = {
+        x: touch.pageX,
+        y: touch.pageY
+      };
+    }
+    handleMove(evt) {
+      const touch = evt.touches[0];
+      const movePoint = {
+        x: touch.pageX,
+        y: touch.pageY
+      };
+      const x = this.startPoint.x - movePoint.x;
+      const y = this.startPoint.y - movePoint.y;
+      this.startPoint = movePoint;
+      const viewportTransform = this.editor.viewportTransform;
+      viewportTransform[4] += -x;
+      viewportTransform[5] += -y;
+      this.editor.setViewportTransform(viewportTransform);
+    }
+    handleMoveEnd(evt) {
+      const viewportTransform = this.editor.viewportTransform;
       const canvasWidth = this.editor.canvasWidth;
       const canvasHeight = this.editor.canvasHeight;
-      const imageRate = imageWidth / imageHeight;
-      const canvasRate = canvasWidth / canvasHeight;
-      let [dx, dy, dw, dh] = [];
-      if (imageRate >= canvasRate) {
-        dw = canvasWidth;
-        dh = canvasWidth / imageRate;
+      const offsetX = viewportTransform[4];
+      const offsetY = viewportTransform[5];
+      if (this._getWidth > canvasWidth) {
+        formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:179", "进来了", offsetX, this._offsetX);
+        if (offsetX > 0) {
+          viewportTransform[4] = 0;
+        }
+        if (this._getWidth + offsetX < canvasWidth) {
+          viewportTransform[4] = -(this._getWidth - canvasWidth);
+        }
       } else {
-        dh = canvasHeight;
-        dw = canvasHeight * imageRate;
+        viewportTransform[4] = (this._getWidth + this._offsetX - canvasWidth) / 2 + this._getWidth / 2;
+        formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:199", "进来了2", viewportTransform);
       }
-      dx = (canvasWidth - dw) / 2;
-      dy = (canvasHeight - dh) / 2;
-      const { scaleX, scaleY, translateX, translateY } = this.editor;
-      formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:76", scaleX, scaleY, translateX, translateY);
-      ctx.setTransform(
-        this.editor.scaleX,
-        0,
-        0,
-        this.editor.scaleY,
-        this.editor.translateX,
-        this.editor.translateY
-      );
-      ctx.drawImage(this.src, dx, dy, dw, dh);
+      if (this._getHeight > canvasHeight) {
+        if (offsetY > -this._offsetY) {
+          viewportTransform[5] = -this._offsetY;
+        }
+        if (offsetY < -(this._getHeight + this._offsetY - canvasHeight)) {
+          viewportTransform[5] = canvasHeight - this._offsetY - this._getHeight;
+        }
+      } else {
+        viewportTransform[5] = -((this._getHeight + this._offsetY - canvasHeight) / 2 + this._getHeight / 2);
+      }
+      this.editor.setViewportTransform(viewportTransform);
+      this.editor.render();
+    }
+    get _getWidth() {
+      const scale = this.editor.viewportTransform[0];
+      return this.imageWidth * scale;
+    }
+    get _getHeight() {
+      const scale = this.editor.viewportTransform[0];
+      return this.imageHeight * scale;
+    }
+    get _offsetX() {
+      const scale = this.editor.viewportTransform[0];
+      return this.dx * scale;
+    }
+    get _offsetY() {
+      const scale = this.editor.viewportTransform[0];
+      return this.dy * scale;
     }
   }
   class ImageEditor extends eventsExports {
@@ -693,12 +796,9 @@ if (uni.restoreGlobal) {
       // object list
       this.objects = [];
       // tool mode
-      // mode = ToolModeEnum.RECT;
-      this.mode = null;
-      this.translateX = 0;
-      this.translateY = 0;
-      this.scaleX = 1;
-      this.scaleY = 1;
+      this.mode = ToolModeEnum.CROP;
+      // mode = null;
+      this.viewportTransform = [2, 0, 0, 2, 0, 0];
       this.ctx = getContext();
       this.init();
       this.canvasWidth = width;
@@ -732,6 +832,7 @@ if (uni.restoreGlobal) {
     }
     render() {
       this.ctx.clearRect(0, 0, this.width, this.height);
+      this.ctx.setTransform(...this.viewportTransform);
       this.backgroundImage.draw(this.ctx);
       this.objects.forEach((obj) => {
         obj.draw(this.ctx);
@@ -762,11 +863,8 @@ if (uni.restoreGlobal) {
         this.render();
       }, 3e3);
     }
-    setScale(scaleX, scaleY) {
-      this.scaleX = scaleX;
-      this.scaleY = scaleY;
-      this.translateX = this.canvasWidth / 2 * (1 - this.scaleX);
-      this.translateY = this.canvasHeight / 2 * (1 - this.scaleY);
+    setViewportTransform(viewportTransform) {
+      this.viewportTransform = viewportTransform;
     }
   }
   const _export_sfc = (sfc, props) => {
@@ -790,7 +888,6 @@ if (uni.restoreGlobal) {
         formatAppLog("log", "at pages/index/index.vue:33", e, "onBlur");
       },
       onTouchstart(e) {
-        formatAppLog("log", "at pages/index/index.vue:36", e);
         this.editor.onTouchstart(e);
       },
       onTouchmove(e) {

@@ -33,7 +33,6 @@ export default {
       console.log(e, "onBlur");
     },
     onTouchstart(e) {
-      console.log(e);
       this.editor.onTouchstart(e);
     },
     onTouchmove(e) {

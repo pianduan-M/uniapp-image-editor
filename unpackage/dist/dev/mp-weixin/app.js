@@ -15,7 +15,7 @@ const _sfc_main = {
     console.log("App Hide");
   }
 };
-const App = /* @__PURE__ */ common_vendor._export_sfc(_sfc_main, [["__file", "/Users/pianduan/Documents/code/demo/uniapp/pd-image-editor/App.vue"]]);
+const App = /* @__PURE__ */ common_vendor._export_sfc(_sfc_main, [["__file", "/Users/painduan/Desktop/code/demo/uniapp-image-editor/App.vue"]]);
 function createApp() {
   const app = common_vendor.createSSRApp(App);
   return {

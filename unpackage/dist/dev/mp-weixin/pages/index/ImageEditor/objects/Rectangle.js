@@ -1,5 +1,6 @@
 "use strict";
-class Rectangle {
+const pages_index_ImageEditor_core_object = require("../core/object.js");
+class Rectangle extends pages_index_ImageEditor_core_object.BasicObject {
   constructor({
     x,
     y,
@@ -7,6 +8,7 @@ class Rectangle {
     lineCap = "square",
     stroke = "black"
   }) {
+    super();
     this.color = color;
     this.startX = x;
     this.startY = y;
@@ -27,18 +29,25 @@ class Rectangle {
     return Math.max(this.startY, this.endY);
   }
   draw(ctx) {
+    !this.ctx && (this.ctx = ctx);
     ctx.beginPath();
-    ctx.moveTo(this.minX, this.minY);
-    ctx.lineTo(this.maxX, this.minY);
-    ctx.lineTo(this.maxX, this.maxY);
-    ctx.lineTo(this.minX, this.maxY);
-    ctx.lineTo(this.minX, this.minY);
+    this.transform();
+    const minX = this.minX - (this.scaleX - 1) * this.scaleX;
+    const minY = this.minY - (this.scaleY - 1) * this.scaleY;
+    const maxX = this.maxX + (this.scaleX - 1) * this.maxX;
+    const maxY = this.maxY + (this.scaleY - 1) * this.maxY;
+    ctx.moveTo(minX, minY);
+    ctx.lineTo(maxX, minY);
+    ctx.lineTo(maxX, maxY);
+    ctx.lineTo(minX, maxY);
+    ctx.lineTo(minX, minY);
     ctx.setFillStyle(this.color);
     ctx.fill();
     ctx.setLineCap(this.lineCap);
     ctx.setStrokeStyle(this.stroke);
     ctx.setLineWidth(3);
     ctx.stroke();
+    this.resetTransform();
   }
   isInside(x, y) {
     return x >= this.minX && x <= this.maxX && y >= this.minY && y <= this.maxY;
@@ -56,6 +65,14 @@ class Rectangle {
     this.startY += diffY;
     this.endX += diffX;
     this.endY += diffY;
+  }
+  getObjectCenter() {
+    const w = this.maxX - this.minX;
+    const h = this.maxY - this.minY;
+    return {
+      x: this.minX + w / 2,
+      y: this.minY + h / 2
+    };
   }
 }
 exports.Rectangle = Rectangle;

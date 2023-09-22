@@ -18,6 +18,8 @@ export class ImageEditor extends EventEmitter {
   viewportTransform = [1, 0, 0, 1, 0, 0];
   angle = Math.PI / 2;
 
+  defaultScale =5;
+
   constructor({ getContext, getBottomContext, width, height }) {
     super();
     this.ctx = getContext();
@@ -37,7 +39,7 @@ export class ImageEditor extends EventEmitter {
       cropCtx: this.ctx2,
     });
 
-    this.crop =new InitCrop({editor:this,ctx:this.ctx2});
+    this.crop = new InitCrop({ editor: this, ctx: this.ctx2 });
 
     this.render();
   }
@@ -67,14 +69,13 @@ export class ImageEditor extends EventEmitter {
 
   render() {
     this.ctx.clearRect(0, 0, this.width, this.height);
-    this.ctx2.clearRect(0, 0, this.width, this.height);
     this.ctx.save();
     const [scaleX, s1, s2, scaleY, offsetX, offsetY] = this.viewportTransform;
 
     const [centerX, centerY] = this.centerPoint;
 
     this.ctx.translate(centerX, centerY);
-    this.ctx.scale(scaleX, scaleY);
+    this.ctx.scale(scaleX * this.defaultScale, scaleY * this.defaultScale);
     this.ctx.rotate(this.angle);
     this.ctx.translate(-centerX, -centerY);
 
@@ -88,9 +89,6 @@ export class ImageEditor extends EventEmitter {
 
     this.ctx.draw();
     this.ctx.restore();
-
-    this.crop.draw()
-    this.ctx2.draw();
   }
 
   getActiveObject() {
@@ -133,9 +131,22 @@ export class ImageEditor extends EventEmitter {
 
   // 根据旋转角度转换坐标
   transform(x, y, angle) {
+    angle = angle || this.angle
     const dx = x * Math.cos(angle) + y * Math.sin(angle);
     const dy = -x * Math.sin(angle) + y * Math.cos(angle);
 
     return [dx, dy];
+  }
+
+  getOffset() {
+    const [scaleX, s1, s2, scaleY, offsetX, offsetY] = this.viewportTransform;
+
+    return this.transform(offsetX, offsetY, this.angle);
+  }
+
+  getZoom() {
+    const [scale] = this.viewportTransform;
+
+    return scale * this.defaultScale;
   }
 }

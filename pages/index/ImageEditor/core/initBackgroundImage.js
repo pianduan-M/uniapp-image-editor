@@ -25,7 +25,7 @@ export default class InitBackgroundImage {
     this.bindHandleTouchmove = this.handleTouchmove.bind(this);
     this.bindHandleTouchend = this.handleTouchend.bind(this);
 
-    this.editor.on("touchstart", this.bindHandleTouchstart);
+    // this.editor.on("touchstart", this.bindHandleTouchstart);
   }
   handleTouchstart(evt) {
     if (this.editor.mode !== ToolModeEnum.CROP) {
@@ -129,6 +129,8 @@ export default class InitBackgroundImage {
 
         this.handleMoveEnd();
 
+        this.editor.emit("loadImage");
+
         this.editor.render();
       },
       fail: (error) => {},
@@ -164,9 +166,12 @@ export default class InitBackgroundImage {
 
     const viewportTransform = this.editor.viewportTransform;
 
-    viewportTransform[4] += distanceX / viewportTransform[0];
+    const zoom = this.editor.getZoom()
 
-    viewportTransform[5] += distanceY / viewportTransform[0];
+
+    viewportTransform[4] += distanceX / zoom
+
+    viewportTransform[5] += distanceY / zoom
 
     this.editor.setViewportTransform(viewportTransform);
   }
@@ -222,15 +227,6 @@ export default class InitBackgroundImage {
       viewportTransform[4] = 0;
     }
 
-    console.log(
-      `offset${offsetY}; height${
-        this._getHeight
-      };transform ${this.editor.transform(
-        ...viewportTransform.slice(4),
-        this.editor.angle
-      )}`
-    );
-
     if (this._getHeight > canvasHeight) {
       const maxOffsetY = (this._getHeight - canvasHeight) / 2 / scale;
 
@@ -257,7 +253,7 @@ export default class InitBackgroundImage {
       this.imageHeight,
       this.editor.angle
     );
-    return Math.abs(imageWidth * scale);
+    return Math.abs(imageWidth * scale) * this.editor.defaultScale;
   }
 
   get _getHeight() {
@@ -267,7 +263,7 @@ export default class InitBackgroundImage {
       this.imageHeight,
       this.editor.angle
     );
-    return Math.abs(imageHeight * scale);
+    return Math.abs(imageHeight * scale) * this.editor.defaultScale;
   }
 
   get _getMinScale() {
@@ -280,5 +276,14 @@ export default class InitBackgroundImage {
     );
 
     return Math.min(canvasWidth / Math.abs(dw), canvasHeight / Math.abs(dh));
+  }
+
+  getOffset() {
+    console.log(this.imageWidth, this.imageHeight);
+    return [this.dx, this.dy];
+  }
+
+  getImageSize() {
+    return this.editor.transform(this.imageWidth, this.imageHeight);
   }
 }

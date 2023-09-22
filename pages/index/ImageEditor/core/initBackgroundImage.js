@@ -9,9 +9,11 @@ export default class InitBackgroundImage {
     y: 0,
   };
   distance = 0;
+  lineWidth = 8;
 
-  constructor({ src, editor }) {
+  constructor({ src, editor, cropCtx }) {
     this.editor = editor;
+    this.cropCtx = cropCtx;
     if (src) {
       this.setBackgroundImage(src);
     }
@@ -74,9 +76,6 @@ export default class InitBackgroundImage {
 
       let scaleX = viewportTransform[0] * scale;
 
-      scaleX = scaleX > 10 ? 10 : scaleX;
-      scaleX = scaleX < this._getMinScale ? this._getMinScale : scaleX;
-
       viewportTransform[0] = scaleX;
       viewportTransform[3] = scaleX;
 
@@ -125,11 +124,10 @@ export default class InitBackgroundImage {
         this.dx = canvasWidth / 2 - dw / 2;
         this.dy = canvasHeight / 2 - dh / 2;
 
-        const size = this.editor.transform(dw, dh, this.editor.angle);
         this.imageWidth = dw;
         this.imageHeight = dh;
 
-        console.log(dw, dh);
+        this.handleMoveEnd();
 
         this.editor.render();
       },
@@ -202,7 +200,13 @@ export default class InitBackgroundImage {
 
     const offsetX = viewportTransform[4];
     const offsetY = viewportTransform[5];
-    const scale = viewportTransform[0];
+    let scale = viewportTransform[0];
+
+    scale = scale > 10 ? 10 : scale;
+    scale = scale < this._getMinScale ? this._getMinScale : scale;
+    viewportTransform[0] = scale;
+    viewportTransform[3] = scale;
+    this.editor.setViewportTransform(viewportTransform);
 
     if (this._getWidth > canvasWidth) {
       const maxOffsetX = (this._getWidth - canvasWidth) / 2 / scale;

@@ -2,10 +2,12 @@ import EventEmitter from "events";
 import { ToolModeEnum } from "../enum/imageEditorModeEnum.js";
 import InitPaintRect from "./initPaintRect.js";
 import InitBackgroundImage from "./initBackgroundImage.js";
-
+import InitCrop from "./initCrop.js";
 export class ImageEditor extends EventEmitter {
   // canvas context
   ctx;
+  // 用来绘制剪切框，画笔
+  ctx2;
   // object list
   objects = [];
   // tool mode
@@ -16,9 +18,10 @@ export class ImageEditor extends EventEmitter {
   viewportTransform = [1, 0, 0, 1, 0, 0];
   angle = Math.PI / 2;
 
-  constructor({ getContext, width, height }) {
+  constructor({ getContext, getBottomContext, width, height }) {
     super();
     this.ctx = getContext();
+    this.ctx2 = getBottomContext();
     this.canvasWidth = width;
     this.canvasHeight = height;
     this.init();
@@ -31,7 +34,10 @@ export class ImageEditor extends EventEmitter {
     this.backgroundImage = new InitBackgroundImage({
       src: "/static/21695106089_.pic.jpg",
       editor: this,
+      cropCtx: this.ctx2,
     });
+
+    this.crop =new InitCrop({editor:this,ctx:this.ctx2});
 
     this.render();
   }
@@ -61,6 +67,7 @@ export class ImageEditor extends EventEmitter {
 
   render() {
     this.ctx.clearRect(0, 0, this.width, this.height);
+    this.ctx2.clearRect(0, 0, this.width, this.height);
     this.ctx.save();
     const [scaleX, s1, s2, scaleY, offsetX, offsetY] = this.viewportTransform;
 
@@ -81,6 +88,9 @@ export class ImageEditor extends EventEmitter {
 
     this.ctx.draw();
     this.ctx.restore();
+
+    this.crop.draw()
+    this.ctx2.draw();
   }
 
   getActiveObject() {

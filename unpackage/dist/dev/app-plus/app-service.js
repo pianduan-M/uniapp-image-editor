@@ -615,7 +615,7 @@ if (uni.restoreGlobal) {
     }
   }
   class InitBackgroundImage {
-    constructor({ src, editor }) {
+    constructor({ src, editor, cropCtx }) {
       this.imageWidth = null;
       this.imageHeight = null;
       this.startPoint = {
@@ -623,7 +623,9 @@ if (uni.restoreGlobal) {
         y: 0
       };
       this.distance = 0;
+      this.lineWidth = 8;
       this.editor = editor;
+      this.cropCtx = cropCtx;
       if (src) {
         this.setBackgroundImage(src);
       }
@@ -639,7 +641,7 @@ if (uni.restoreGlobal) {
       if (this.editor.mode !== ToolModeEnum.CROP) {
         return;
       }
-      formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:33", this._getMinScale);
+      formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:35", this._getMinScale);
       const touches = evt.touches;
       if (touches.length <= 1) {
         this.handleMoveStart(evt);
@@ -665,8 +667,6 @@ if (uni.restoreGlobal) {
         this.distance = newDistance;
         const viewportTransform = this.editor.viewportTransform;
         let scaleX = viewportTransform[0] * scale;
-        scaleX = scaleX > 10 ? 10 : scaleX;
-        scaleX = scaleX < this._getMinScale ? this._getMinScale : scaleX;
         viewportTransform[0] = scaleX;
         viewportTransform[3] = scaleX;
       } else {
@@ -706,10 +706,9 @@ if (uni.restoreGlobal) {
           }
           this.dx = canvasWidth / 2 - dw / 2;
           this.dy = canvasHeight / 2 - dh / 2;
-          this.editor.transform(dw, dh, this.editor.angle);
           this.imageWidth = dw;
           this.imageHeight = dh;
-          formatAppLog("log", "at pages/index/ImageEditor/core/initBackgroundImage.js:132", dw, dh);
+          this.handleMoveEnd();
           this.editor.render();
         },
         fail: (error) => {
@@ -765,7 +764,12 @@ if (uni.restoreGlobal) {
       const canvasHeight = this.editor.canvasHeight;
       const offsetX = viewportTransform[4];
       const offsetY = viewportTransform[5];
-      const scale = viewportTransform[0];
+      let scale = viewportTransform[0];
+      scale = scale > 10 ? 10 : scale;
+      scale = scale < this._getMinScale ? this._getMinScale : scale;
+      viewportTransform[0] = scale;
+      viewportTransform[3] = scale;
+      this.editor.setViewportTransform(viewportTransform);
       if (this._getWidth > canvasWidth) {
         const maxOffsetX = (this._getWidth - canvasWidth) / 2 / scale;
         if (offsetX > maxOffsetX) {
@@ -779,7 +783,7 @@ if (uni.restoreGlobal) {
       }
       formatAppLog(
         "log",
-        "at pages/index/ImageEditor/core/initBackgroundImage.js:221",
+        "at pages/index/ImageEditor/core/initBackgroundImage.js:225",
         `offset${offsetY}; height${this._getHeight};transform ${this.editor.transform(
           ...viewportTransform.slice(4),
           this.editor.angle
@@ -828,7 +832,7 @@ if (uni.restoreGlobal) {
     }
   }
   class ImageEditor extends eventsExports {
-    constructor({ getContext, width, height }) {
+    constructor({ getContext, getBottomContext, width, height }) {
       super();
       // object list
       this.objects = [];
@@ -840,6 +844,7 @@ if (uni.restoreGlobal) {
       this.viewportTransform = [1, 0, 0, 1, 0, 0];
       this.angle = Math.PI / 2;
       this.ctx = getContext();
+      this.ctx2 = getBottomContext();
       this.canvasWidth = width;
       this.canvasHeight = height;
       this.init();
@@ -849,7 +854,8 @@ if (uni.restoreGlobal) {
       this.setCenterPoint([this.canvasWidth / 2, this.canvasHeight / 2]);
       this.backgroundImage = new InitBackgroundImage({
         src: "/static/21695106089_.pic.jpg",
-        editor: this
+        editor: this,
+        cropCtx: this.ctx2
       });
       this.render();
     }
@@ -873,6 +879,7 @@ if (uni.restoreGlobal) {
     }
     render() {
       this.ctx.clearRect(0, 0, this.width, this.height);
+      this.ctx2.clearRect(0, 0, this.width, this.height);
       this.ctx.save();
       const [scaleX, s1, s2, scaleY, offsetX, offsetY] = this.viewportTransform;
       const [centerX, centerY] = this.centerPoint;
@@ -887,6 +894,7 @@ if (uni.restoreGlobal) {
       });
       this.ctx.draw();
       this.ctx.restore();
+      this.ctx2.draw();
     }
     getActiveObject() {
       const existItem = this.objects.find((obj) => obj.isActive);
@@ -943,7 +951,7 @@ if (uni.restoreGlobal) {
     },
     methods: {
       onBlur(e) {
-        formatAppLog("log", "at pages/index/index.vue:33", e, "onBlur");
+        formatAppLog("log", "at pages/index/index.vue:39", e, "onBlur");
       },
       onTouchstart(e) {
         this.editor.onTouchstart(e);
@@ -957,11 +965,15 @@ if (uni.restoreGlobal) {
     },
     mounted() {
       const ctx = uni.createCanvasContext("canvasTop", this);
+      const ctx2 = uni.createCanvasContext("canvasBottom", this);
       const query = uni.createSelectorQuery().in(this);
       query.select("#canvasTop").boundingClientRect((data) => {
         this.editor = new ImageEditor({
           getContext() {
             return ctx;
+          },
+          getBottomContext() {
+            return ctx2;
           },
           ...data
         });
@@ -983,6 +995,11 @@ if (uni.restoreGlobal) {
           id: "canvasTop",
           class: "canvas-top"
         }),
+        vue.createElementVNode("canvas", {
+          "canvas-id": "canvasBottom",
+          id: "canvasBottom",
+          class: "canvas-top"
+        }),
         $data.show ? (vue.openBlock(), vue.createElementBlock(
           "textarea",
           {
@@ -1001,7 +1018,7 @@ if (uni.restoreGlobal) {
       /* HYDRATE_EVENTS */
     );
   }
-  const PagesIndexIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__file", "/Users/pianduan/Documents/code/demo/uniapp/pd-image-editor/pages/index/index.vue"]]);
+  const PagesIndexIndex = /* @__PURE__ */ _export_sfc(_sfc_main$1, [["render", _sfc_render], ["__file", "/Users/painduan/Desktop/code/demo/uniapp-image-editor/pages/index/index.vue"]]);
   __definePage("pages/index/index", PagesIndexIndex);
   const _sfc_main = {
     onLaunch: function() {
@@ -1014,7 +1031,7 @@ if (uni.restoreGlobal) {
       formatAppLog("log", "at App.vue:10", "App Hide");
     }
   };
-  const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "/Users/pianduan/Documents/code/demo/uniapp/pd-image-editor/App.vue"]]);
+  const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "/Users/painduan/Desktop/code/demo/uniapp-image-editor/App.vue"]]);
   function createApp() {
     const app = vue.createVueApp(App);
     return {

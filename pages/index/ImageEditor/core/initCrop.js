@@ -3,6 +3,13 @@ import { ToolModeEnum } from "../enum/imageEditorModeEnum";
 export default class initCrop {
   x = 0;
   y = 0;
+  lineWidth = 10;
+  lineColor = "white";
+  startPoint = {
+    x: 0,
+    y: 0,
+  };
+  controlSize = 30;
 
   // 4个顶点坐标
   square = [
@@ -15,6 +22,8 @@ export default class initCrop {
   constructor({ ctx, editor }) {
     this.ctx = ctx;
     this.editor = editor;
+
+    this.init()
   }
 
   init() {
@@ -29,6 +38,10 @@ export default class initCrop {
     if (this.editor.mode !== ToolModeEnum.CROP) {
       return;
     }
+
+    const touch = evt.touches[0];
+
+    this.isInGraph(touch.pageX, touch.pageY);
 
     this.editor.on("touchmove", this.bindHandleTouchmove);
     this.editor.on("touchend", this.bindHandleTouchend);
@@ -46,7 +59,84 @@ export default class initCrop {
    * @param {*} x 点击的坐标
    * @param {*} y 点击的坐标
    */
-  isInGraph(x, y) {}
+  isInGraph(x, y) {
+    let result = false;
+    // 左上角
+    if (
+      x > this.dx &&
+      x < this.dx + this.controlSize &&
+      y > this.dy &&
+      y < this.dy + this.controlSize
+    ) {
+      result = "leftTop";
+    }
 
-  draw() {}
+    // 右上角
+    if (
+      x > this.imageWidth - this.controlSize &&
+      x < this.imageWidth &&
+      y > this.dy &&
+      y < this.dy + this.controlSize
+    ) {
+      result = "rightTop";
+    }
+
+    // 右下角
+
+    if (
+      x > this.imageWidth - this.controlSize &&
+      x < this.imageWidth &&
+      y > this.dy - this.controlSize &&
+      y < this.imageHeight
+    ) {
+      result = "rightBottom";
+    }
+
+    // 左下角
+
+    if (
+      x > this.dx &&
+      x < this.dx + this.controlSize &&
+      y > this.dy - this.controlSize &&
+      y < this.imageHeight
+    ) {
+      result = "leftBottom";
+    }
+
+    console.log(result);
+  }
+
+  draw() {
+    const dx = this.canvasWidth / 2 - this.imageWidth / 2;
+    const dy = this.canvasHeight / 2 - this.imageHeight / 2;
+
+    this.dx = dx;
+    this.dy = dy;
+
+    this.ctx.setStrokeStyle(this.lineColor);
+    this.ctx.setLineWidth(this.lineWidth);
+
+    this.ctx.strokeRect(
+      dx + this.lineWidth / 2,
+      dy + this.lineWidth / 2,
+      this.imageWidth - this.lineWidth,
+      this.imageHeight - this.lineWidth
+    );
+  }
+
+  get canvasWidth() {
+    return this.editor.canvasWidth;
+  }
+
+  get canvasHeight() {
+    return this.editor.canvasHeight;
+  }
+
+  get imageWidth() {
+    return this.editor.backgroundImage._getWidth;
+  }
+
+  get imageHeight() {
+    return this.editor.backgroundImage._getHeight;
+  }
 }

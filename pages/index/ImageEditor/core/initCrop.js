@@ -37,11 +37,6 @@ export default class initCrop {
     this.bindHandleTouchstart = this.handleTouchstart.bind(this);
     this.bindHandleTouchmove = this.handleTouchmove.bind(this);
     this.bindHandleTouchend = this.handleTouchend.bind(this);
-
-    this.editor.on("touchstart", this.bindHandleTouchstart);
-    this.editor.on("loadImage", () => {
-      this.startCrop();
-    });
   }
 
   startCrop() {
@@ -60,6 +55,8 @@ export default class initCrop {
 
     this.width = width;
     this.height = height;
+
+    this.editor.on("touchstart", this.bindHandleTouchstart);
 
     this.draw();
   }

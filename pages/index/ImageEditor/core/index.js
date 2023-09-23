@@ -3,6 +3,8 @@ import { ToolModeEnum } from "../enum/imageEditorModeEnum.js";
 import InitPaintRect from "./initPaintRect.js";
 import InitBackgroundImage from "./initBackgroundImage.js";
 import InitCrop from "./initCrop.js";
+import InitPaint from "./initPaint.js";
+
 export class ImageEditor extends EventEmitter {
   // canvas context
   ctx;
@@ -11,14 +13,14 @@ export class ImageEditor extends EventEmitter {
   // object list
   objects = [];
   // tool mode
-  mode = ToolModeEnum.CROP;
+  mode = ToolModeEnum.PAINT;
   // mode = null;
   scale = 1;
   centerPoint = [0, 0];
   viewportTransform = [1, 0, 0, 1, 0, 0];
   angle = Math.PI / 2;
 
-  defaultScale =5;
+  defaultScale = 5;
 
   constructor({ getContext, getBottomContext, width, height }) {
     super();
@@ -40,6 +42,8 @@ export class ImageEditor extends EventEmitter {
     });
 
     this.crop = new InitCrop({ editor: this, ctx: this.ctx2 });
+
+    this.paint = new InitPaint({ editor: this });
 
     this.render();
   }
@@ -131,7 +135,7 @@ export class ImageEditor extends EventEmitter {
 
   // 根据旋转角度转换坐标
   transform(x, y, angle) {
-    angle = angle || this.angle
+    angle = angle || this.angle;
     const dx = x * Math.cos(angle) + y * Math.sin(angle);
     const dy = -x * Math.sin(angle) + y * Math.cos(angle);
 
